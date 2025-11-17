@@ -1,0 +1,100 @@
+
+================================================================================
+  PROXMOX DEPLOYMENT - READY TO GO!
+================================================================================
+
+Your Proxmox server: 192.168.0.100
+
+TWO WAYS TO DEPLOY:
+
+1. EASIEST - Double-click batch file:
+   File: deploy-to-proxmox.bat
+   - Double-click the file
+   - Enter root password when prompted
+   - Wait for deployment (3-5 minutes)
+
+2. PowerShell method:
+   File: deploy-to-proxmox.ps1
+   - Right-click the file
+   - Select "Run with PowerShell"
+   - Enter root password when prompted
+
+3. Manual SSH command:
+   Open PowerShell or CMD and run:
+   
+   ssh root@192.168.0.100
+   
+   Then paste these commands:
+   cd /opt
+   git clone https://github.com/BambiSleepChurch/cozy-nest.git
+   cd cozy-nest
+   chmod +x scripts/deploy-nest.sh
+   ./scripts/deploy-nest.sh
+
+4. Web UI method (if SSH does not work):
+   - Open: https://192.168.0.100:8006
+   - Login as root
+   - Click your node name
+   - Click "Shell" button
+   - Paste the commands from method 3
+
+================================================================================
+WHAT HAPPENS DURING DEPLOYMENT:
+================================================================================
+
+The script will automatically:
+  1. Clone repository to /opt/cozy-nest
+  2. Download Alpine Linux template
+  3. Create container ID 100
+  4. Install all packages
+  5. Setup directory structure
+  6. Configure security (unprivileged + AppArmor)
+  7. Start the container
+
+Time: 3-5 minutes
+
+================================================================================
+AFTER DEPLOYMENT:
+================================================================================
+
+Check container status:
+  ssh root@192.168.0.100 "pct status 100"
+
+Enter container:
+  ssh root@192.168.0.100 "pct enter 100"
+
+Test augment service (inside container):
+  python3 /opt/nest/services/augment/augment.py health
+
+View logs:
+  tail -f /opt/nest/logs/*.log
+
+================================================================================
+TROUBLESHOOTING:
+================================================================================
+
+If SSH does not work:
+  - Check if Proxmox is reachable: ping 192.168.0.100
+  - Verify SSH is enabled on Proxmox
+  - Try Web UI instead: https://192.168.0.100:8006
+
+If deployment fails:
+  - Check error messages
+  - Verify you are using root account
+  - Ensure Proxmox has internet connection
+  - Try manual deployment via Web UI
+
+Container ID 100 already exists:
+  - Script will prompt to destroy and recreate
+  - Or change CONTAINER_ID in deploy-nest.sh
+
+================================================================================
+YOU ARE READY TO DEPLOY!
+================================================================================
+
+Just double-click: deploy-to-proxmox.bat
+
+OR run: .\deploy-to-proxmox.ps1
+
+Your orchestration awaits!
+================================================================================
