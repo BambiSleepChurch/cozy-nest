@@ -47,42 +47,42 @@ echo -e "${BLUE}📋 STEP 2: Finding Alpine Linux template...${NC}"
 # Update template list
 pveam update
 
-# List available Alpine templates and pick the first one
-AVAILABLE_TEMPLATES=$(pveam available | grep alpine | grep "amd64\|x86_64" | head -5)
-
-if [ -z "$AVAILABLE_TEMPLATES" ]; then
-    echo -e "${RED}❌ ERROR: No Alpine templates found!${NC}"
-    echo "   Available templates:"
-    pveam available | grep -i alpine || echo "   (none found)"
-    exit 1
-fi
-
-echo "   Available Alpine templates:"
-echo "$AVAILABLE_TEMPLATES" | nl
-echo ""
-
-# Try to find an already downloaded template
+# Try to find an already downloaded template first
 DOWNLOADED=$(pveam list local 2>/dev/null | grep -i alpine | grep "amd64\|x86_64" | head -1 | awk '{print $1}')
 
 if [ -n "$DOWNLOADED" ]; then
     echo -e "${GREEN}✅ Found downloaded template: $DOWNLOADED${NC}"
     TEMPLATE="$DOWNLOADED"
 else
-    # Download the first available Alpine template
-    TEMPLATE_TO_DOWNLOAD=$(echo "$AVAILABLE_TEMPLATES" | head -1 | awk '{print $1}')
-    echo "   Downloading: $TEMPLATE_TO_DOWNLOAD"
+    # List available Alpine templates
+    echo "   Searching for Alpine templates..."
+    TEMPLATE_NAME=$(pveam available | grep -i alpine | grep "amd64\|x86_64" | grep -E "default|standard" | head -1 | awk '{print $2}')
+    
+    if [ -z "$TEMPLATE_NAME" ]; then
+        echo -e "${RED}❌ ERROR: No Alpine templates found!${NC}"
+        echo ""
+        echo "   Available templates:"
+        pveam available | grep -i alpine | head -10
+        echo ""
+        echo "   Manual fix:"
+        echo "   1. Find a template: pveam available | grep alpine"
+        echo "   2. Download it: pveam download local <template-name>"
+        echo "   Example: pveam download local alpine-3.22-default_20250617_amd64.tar.xz"
+        exit 1
+    fi
+    
+    echo "   Found template: $TEMPLATE_NAME"
+    echo "   Downloading to local storage..."
     echo "   (This may take a moment...)"
     
-    if pveam download local "$TEMPLATE_TO_DOWNLOAD"; then
+    if pveam download local "$TEMPLATE_NAME"; then
         echo -e "${GREEN}✅ Template downloaded successfully${NC}"
-        TEMPLATE="local:vztmpl/$TEMPLATE_TO_DOWNLOAD"
+        TEMPLATE="local:vztmpl/$TEMPLATE_NAME"
     else
         echo -e "${RED}❌ ERROR: Failed to download template${NC}"
         echo ""
-        echo "   Manual fix:"
-        echo "   1. List available templates: pveam available | grep alpine"
-        echo "   2. Download one: pveam download local <template-name>"
-        echo "   3. Update TEMPLATE variable in this script"
+        echo "   Try manually:"
+        echo "   pveam download local $TEMPLATE_NAME"
         exit 1
     fi
 fi
@@ -169,8 +169,8 @@ echo -e "${BLUE}📋 STEP 7: Deploying services to container...${NC}"
 if [ -d "../services" ]; then
     echo "   Copying services from host..."
     pct push $CONTAINER_ID ../services /opt/nest/services -r
-    pct exec $CONTAINER_ID -- chmod +x /opt/nest/services/*/*.sh
-    pct exec $CONTAINER_ID -- chmod +x /opt/nest/services/*/*.py
+    pct exec $CONTAINER_ID -- chmod +x /opt/nest/services/*/*.sh 2>/dev/null || true
+    pct exec $CONTAINER_ID -- chmod +x /opt/nest/services/*/*.py 2>/dev/null || true
     echo -e "${GREEN}✅ Services deployed${NC}"
 else
     echo -e "${YELLOW}⚠️  Services directory not found in expected location${NC}"
