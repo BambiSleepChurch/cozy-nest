@@ -1,0 +1,11 @@
+Updated: f:\%LuamGuaMöll€\.github\copilot-instructions.md
+Size: 11834 chars, 1515 words
+
+Key additions:
+- Arc network direct deployment edge case
+- Discord webhook integration details
+- bimbot music player integration pattern
+- Discord rate limiting pitfall (#9)
+- Arc network instability pitfall (#10)
+
+Updated: f:\%LuamGuaMöll€\DEPLOYMENT_STATUS.json

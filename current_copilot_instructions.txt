@@ -2,7 +2,7 @@
 
 ## Project Overview
 
-**The Cozy Nest** is a containerized security monitoring infrastructure built for Proxmox VE using unprivileged Alpine Linux LXC containers. It provides network monitoring, file processing, and alert deployment in a minimal-footprint, security-hardened environment.
+**The Cozy Nest** is a containerized security monitoring infrastructure built on Proxmox VE using unprivileged Alpine Linux LXC containers. It provides network monitoring, file processing, and alert deployment in a minimal-footprint, security-hardened environment.
 
 **Core Philosophy:** Tiny, Cozy, Secure - able to withstand any storm.
 
@@ -47,40 +47,19 @@ All services are stateless where possible and communicate via filesystem:
 
 ## Critical Developer Workflows
 
-### Development Environment
+### Deployment (on Proxmox VE host)
 
-**Windows-based development** targeting Linux deployment:
-- Primary workspace: `f:\%LuamGuaMöll€` (note: path contains Unicode characters)
-- Deployment scripts in PowerShell (`.ps1`) and Bash (`.sh`)
-- Use `deploy-to-proxmox.ps1` for Windows → Proxmox transfers
-
-### Deployment (from Windows to Proxmox)
-
-```powershell
-# Transfer files to Proxmox host
-.\deploy-to-proxmox.ps1
-
-# Then on Proxmox host:
+```bash
 cd /opt/cozy-nest
 chmod +x scripts/*.sh
 # CRITICAL: Review and change ROOT_PASSWORD in deploy-nest.sh first!
 ./scripts/deploy-nest.sh
 ```
 
-**Edge Case - Arc Network Direct Connection:**
-When deploying over Arc network with direct connection:
-- Files transfer directly from Windows workspace to Proxmox without intermediate storage
-- Arc network provides encrypted tunnel, bypassing traditional SSH/SCP
-- Deployment documented in `DEPLOYMENT_STATUS.json` with method: "arc_direct"
-- Monitor Arc network stability during large file transfers
-- Verify checksums after transfer due to potential Arc protocol quirks
-
 **Common deployment issues:**
 - Container ID 100 already exists → Script prompts for override
 - AppArmor blocking operations → Check `dmesg | grep apparmor` in container
 - File permissions wrong → Ensure `dropbox/incoming/` is 777, others are restricted
-- Path encoding issues → Workspace contains `%`, `€`, `ö` characters
-- Arc network timeouts → Retry deployment with smaller batches if connection drops
 
 ### Accessing the Container
 
@@ -169,8 +148,6 @@ set -e  # Always fail on errors
 2. **Alerts:** Service event → call `flare.sh` → log to `flares.log` + optional external channels
 3. **Network Scanning:** Command → `probe.sh` → nmap execution → results to `probes.log`
 4. **Orchestration:** Augment monitors logs → detects events → invokes appropriate service
-5. **Discord Integration:** Service events → flare.sh → Discord webhook → channel notification
-6. **Music Player Control:** Augment receives command → invokes bimbot API → music playback response
 
 ## Integration Points
 
@@ -182,70 +159,11 @@ set -e  # Always fail on errors
 
 ### Notification Channels
 
-Configurable in flare system (`services/flare-system/flare.sh`):
-- **Log files:** Default, always enabled, structured JSON format
-- **Discord Webhooks:** Primary notification channel for alerts
-  - Configure webhook URL in flare system environment
-  - Supports rich embeds with color-coded severity
-  - Rate limit aware (respects Discord API limits)
-- **Email via SMTP:** (to be implemented)
-- **Generic Webhooks:** HTTP POST to custom endpoints (to be implemented)
-
-### Music Player Integration (bimbot)
-
-**Integration Pattern:**
-- Augment monitors system state and can trigger music playback
-- bimbot music player controlled via REST API or local command
-- Music events logged to `music-events.log`
-- Discord notifications for now playing status
-
-**Configuration:**
-```python
-# In augment.py or external config
-BIMBOT_API_ENDPOINT = "http://localhost:8081/api"
-BIMBOT_CONTROL_COMMANDS = ["play", "pause", "skip", "volume", "queue"]
-```
-
-**Usage from Augment:**
-```bash
-# Trigger music playback on specific events
-# Augment detects alert → calls bimbot API → plays notification sound
-# OR: Augment idle state → calls bimbot API → plays ambient music
-```
-
-### Discord Bot Integration
-
-**Pattern:** Flare system acts as Discord webhook client
-- No full Discord bot framework needed (uses webhooks for simplicity)
-- Post alerts, status updates, and music notifications to Discord channels
-- Configure in `services/flare-system/flare.sh` or environment variables
-
-**Example Discord Webhook Configuration:**
-```bash
-# In flare.sh or .env file
-DISCORD_WEBHOOK_URL="https://discord.com/api/webhooks/YOUR_WEBHOOK_ID/YOUR_WEBHOOK_TOKEN"
-DISCORD_CHANNEL_ALERTS="alerts"
-DISCORD_CHANNEL_STATUS="status"
-DISCORD_CHANNEL_MUSIC="music-bot"
-```
-
-**Message Format:**
-```json
-{
-  "username": "Cozy Nest Monitor",
-  "avatar_url": "https://...",
-  "embeds": [{
-    "title": "Alert: High Network Activity",
-    "description": "Detected unusual traffic pattern",
-    "color": 15158332,
-    "timestamp": "2025-11-17T12:00:00Z",
-    "fields": [
-      {"name": "Source", "value": "probe-launcher", "inline": true},
-      {"name": "Severity", "value": "WARNING", "inline": true}
-    ]
-  }]
-}
-```
+Configurable in flare system:
+- Log files (default, always enabled)
+- Email via SMTP (to be implemented)
+- Webhooks HTTP POST (to be implemented)
+- Slack/Discord API (to be implemented)
 
 ## Common Pitfalls & Solutions
 
@@ -256,9 +174,6 @@ DISCORD_CHANNEL_MUSIC="music-bot"
 5. **Scripts not executable:** Use `chmod +x` on all `.sh` files before running
 6. **Hardcoded paths:** Scripts assume `/opt/nest` base; changing requires updates across multiple files
 7. **Container ID conflicts:** Default is 100; script prompts for override if exists
-8. **Windows path encoding:** Workspace path contains Unicode characters (`%LuamGuaMöll€`) - test file operations carefully
-9. **Discord webhook rate limits:** Flare system must respect 5 requests/2 seconds per webhook
-10. **Arc network instability:** Direct connection deployments may fail mid-transfer; implement resume capability
 
 ## Project-Specific Patterns
 
@@ -272,13 +187,7 @@ Security by design - container escapes affect unprivileged user, not root. This 
 Simpler than network sockets, easier to debug, more secure (no listening ports between services).
 
 ### The Augment's Role
-Intelligent orchestrator that reads logs, processes natural language commands, and triggers automated responses to events. Can control music playback via bimbot and send Discord notifications via flare system.
-
-### Windows Development, Linux Deployment
-Development happens on Windows with unusual path characters. PowerShell scripts handle transfer to Proxmox. Test path handling carefully.
-
-### Arc Network Direct Deployment
-Edge case deployment method using Arc network encrypted tunnel for direct Windows-to-Proxmox transfers. Bypasses traditional SSH/SCP but requires monitoring for connection stability.
+Intelligent orchestrator that reads logs, processes natural language commands, and triggers automated responses to events.
 
 ## Key Dependencies
 
@@ -288,16 +197,10 @@ Edge case deployment method using Arc network encrypted tunnel for direct Window
 - `inotify-tools` - File monitoring
 - `openssh` - Remote access
 - `supervisor` - Process management (optional)
-- `curl` or `wget` - For Discord webhook HTTP requests
 
 **Python packages (Augment):**
-- Standard library: `json`, `logging`, `pathlib`, `datetime`, `os`, `sys`, `time`
-- For integrations: `requests` (Discord webhooks, bimbot API calls)
-- Optional: `flask` for HTTP API
-
-**External Services:**
-- **Discord:** Webhook URLs for notification channels
-- **bimbot Music Player:** REST API endpoint (typically localhost:8081)
+- Standard library only: `json`, `logging`, `pathlib`, `datetime`, `os`, `sys`, `time`
+- Future: `requests`, `flask` for HTTP API
 
 ## Documentation References
 
@@ -305,7 +208,6 @@ Edge case deployment method using Arc network encrypted tunnel for direct Window
 - **Quick Start:** `QUICKSTART.md` - Rapid deployment commands
 - **Deployment Checklist:** `DEPLOYMENT_CHECKLIST.txt` - Pre-deployment verification
 - **File Index:** `FILE_INDEX.md` - Complete file listing with descriptions
-- **Deployment Status:** `DEPLOYMENT_STATUS.json` - Current deployment configuration and method
 
 ---
 

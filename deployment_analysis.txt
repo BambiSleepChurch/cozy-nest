@@ -1,0 +1,159 @@
+
+============================================================
+DEPLOYMENT_STATUS.json
+============================================================
+{
+  "deployment_status": "PRE-DEPLOYMENT",
+  "timestamp": "2025-11-17",
+  "platform": "Windows (Development)",
+  "target_platform": "Proxmox VE (Production)",
+  "configuration": {
+    "container_id": 100,
+    "container_name": "bambisleep-nest",
+    "base_os": "Alpine Linux 3.19",
+    "base_path": "/opt/nest",
+    "security": "Unprivileged + AppArmor"
+  },
+  "services_ready": {
+    "augment": true,
+    "dropbox": true,
+    "flare-system": true,
+    "listener": true,
+    "probe-launcher": true
+  },
+  "deployment_blockers": [
+    {
+      "severity": "HIGH",
+      "issue": "Platform Mismatch",
+      "description": "Running on Windows, need Linux/Proxmox host",
+      "solution": "Transfer files to Proxmox VE host or use WSL"
+    }
+  ],
+  "deployment_warnings": [
+    {
+      "severity": "MEDIUM",
+      "issue": "ROOT_PASSWORD configured",
+      "description": "Password is set but should be verified for security",
+      "solution": "Review password strength before deployment"
+    }
+  ],
+  "next_steps": [
+    "1. Transfer project to Proxmox VE host (use SCP/SFTP)",
+    "2. On Proxmox host: cd /opt && tar xzf cozy-nest.tar.gz",
+    "3. Run: chmod +x /opt/cozy-nest/scripts/deploy-nest.sh",
+    "4. Run: /opt/cozy-nest/scripts/deploy-nest.sh",
+    "5. Monitor: pct enter 100 && tail -f /opt/nest/logs/*.log"
+  ],
+  "files_validated": {
+    "deployment_script": "scripts/deploy-nest.sh",
+    "services": [
+      "services/augment/augment.py",
+      "services/dropbox/dropbox-processor.sh",
+      "services/flare-system/flare.sh",
+      "services/listener/communication-listener.sh",
+      "services/probe-launcher/probe.sh"
+    ],
+    "documentation": [
+      "README.md",
+      "QUICKSTART.md",
+      "docs/SETUP.md",
+      "DEPLOYMENT_CHECKLIST.txt"
+    ]
+  }
+}
+
+============================================================
+DEPLOYMENT_CHECKLIST.txt
+============================================================
+
+PRE-DEPLOYMENT CHECKLIST
+========================
+
+[ ] 1. PROXMOX HOST ACCESS
+    - SSH access configured: ssh root@YOUR_PROXMOX_IP
+    - Root or sudo privileges confirmed
+    - Network connectivity verified
+
+[ ] 2. CONFIGURATION REVIEW
+    - Open scripts/deploy-nest.sh
+    - Change ROOT_PASSWORD='ChangeMe123!' to secure password
+    - Verify CONTAINER_ID=100 is available (run: pct list)
+    - Confirm Alpine template path matches your system
+
+[ ] 3. PROXMOX REQUIREMENTS
+    - Proxmox VE 7.0+ installed
+    - Alpine Linux template downloaded
+    - Minimum resources available: 512MB RAM, 2GB storage
+    - AppArmor enabled on host
+
+[ ] 4. FILE TRANSFER PREPARATION
+    - Repository location: f:\%LuamGuaMoll€
+    - Destination: /opt/cozy-nest on Proxmox host
+    - Verify no existing /opt/cozy-n
+...[truncated]
+
+============================================================
+deploy-to-proxmox.ps1
+============================================================
+# Cozy Nest - Automated Proxmox Deployment Script
+# Target: 192.168.0.100
+
+$PROXMOX_IP = "192.168.0.100"
+$PROXMOX_USER = "root"
+
+Write-Host ""
+Write-Host "======================================================================" -ForegroundColor Cyan
+Write-Host "  COZY NEST - AUTOMATED PROXMOX DEPLOYMENT" -ForegroundColor Cyan
+Write-Host "======================================================================" -ForegroundColor Cyan
+Write-Host ""
+Write-Host "Target Proxmox: $PROXMOX_IP" -ForegroundColor Yellow
+Write-Host "User: $PROXMOX_USER" -ForegroundColor Yellow
+Write-Host ""
+
+# Check if ssh is available
+$sshCheck = Get-Command ssh -ErrorAction SilentlyContinue
+if (-not $sshCheck) {
+    Write-Host "ERROR: SSH not found!" -ForegroundColor Red
+    Write-Host "Install OpenSSH or use PuTTY" -F
+...[truncated]
+
+============================================================
+QUICKSTART.md
+============================================================
+# 🎉 YOUR COZY NEST IS READY!
+
+## What We Built (In Big Letters)
+
+You now have a complete **secure monitoring and automation system** called "The Cozy Nest"!
+
+---
+
+## 📦 WHAT'S IN THE BOX
+
+### 1. 🛡️ BambiSleep Security Container
+
+**File:** `scripts/deploy-nest.sh`
+
+This is your fortress! An unprivileged Alpine Linux container that:
+
+- ✅ Isolates everything for safety
+- ✅ Uses AppArmor security profiles
+- ✅ Runs on minimal resources (2GB RAM, 8GB disk)
+- ✅ Automatically starts on boot
+
+### 2. 📡 Communication Listener
+
+**File:** `services/listener/communication-listener.sh`
+
+Listens for incoming messages on port 8080:
+
+- ✅ Logs all connections
+- ✅ Receives JSON payloads
+- ✅ Can trigger alerts
+
+### 3. 🔍 Probe Launcher
+
+**File:** `services/probe-launcher/probe.sh`
+
+Your network reconnaissance to
+...[truncated]
