@@ -1,0 +1,143 @@
+
+PRE-DEPLOYMENT CHECKLIST
+========================
+
+[ ] 1. PROXMOX HOST ACCESS
+    - SSH access configured: ssh root@YOUR_PROXMOX_IP
+    - Root or sudo privileges confirmed
+    - Network connectivity verified
+
+[ ] 2. CONFIGURATION REVIEW
+    - Open scripts/deploy-nest.sh
+    - Change ROOT_PASSWORD='ChangeMe123!' to secure password
+    - Verify CONTAINER_ID=100 is available (run: pct list)
+    - Confirm Alpine template path matches your system
+
+[ ] 3. PROXMOX REQUIREMENTS
+    - Proxmox VE 7.0+ installed
+    - Alpine Linux template downloaded
+    - Minimum resources available: 512MB RAM, 2GB storage
+    - AppArmor enabled on host
+
+[ ] 4. FILE TRANSFER PREPARATION
+    - Repository location: f:\%LuamGuaMoll€
+    - Destination: /opt/cozy-nest on Proxmox host
+    - Verify no existing /opt/cozy-nest directory
+
+DEPLOYMENT CHECKLIST
+====================
+
+[ ] 5. TRANSFER FILES
+    Command: scp -r "f:\%LuamGuaMoll€" root@PROXMOX_IP:/opt/cozy-nest
+    Verify: All files transferred successfully
+
+[ ] 6. SSH INTO PROXMOX
+    Command: ssh root@PROXMOX_IP
+    Verify: Successfully connected
+
+[ ] 7. PREPARE SCRIPTS
+    cd /opt/cozy-nest
+    nano scripts/deploy-nest.sh  # CHANGE ROOT_PASSWORD!
+    chmod +x scripts/*.sh
+    chmod +x services/*/*.sh
+
+[ ] 8. VERIFY TEMPLATE
+    pct list
+    ls /var/lib/vz/template/cache/alpine*.tar.xz
+    Update TEMPLATE path in deploy-nest.sh if needed
+
+[ ] 9. EXECUTE DEPLOYMENT
+    ./scripts/deploy-nest.sh
+    Watch for errors during container creation
+    Wait for package installation to complete
+
+POST-DEPLOYMENT CHECKLIST
+=========================
+
+[ ] 10. VERIFY CONTAINER STATUS
+    pct status 100
+    Should show: status: running
+
+[ ] 11. ENTER CONTAINER
+    pct enter 100
+    Verify you're in Alpine Linux container
+
+[ ] 12. CHECK DIRECTORY STRUCTURE
+    ls -la /opt/nest/
+    Verify: services/, dropbox/, logs/ directories exist
+
+[ ] 13. TEST AUGMENT
+    cd /opt/nest
+    python3 services/augment/augment.py
+    Should initialize without errors
+
+[ ] 14. TEST FLARE SYSTEM
+    ./services/flare-system/flare.sh test
+    Should display test flare message
+
+[ ] 15. TEST PROBE LAUNCHER
+    ./services/probe-launcher/probe.sh localhost ping
+    Should probe localhost successfully
+
+[ ] 16. TEST DROPBOX PROCESSOR
+    ./services/dropbox/dropbox-processor.sh test
+    Should verify dropbox directories
+
+[ ] 17. CHECK LOGS
+    ls -la /opt/nest/logs/
+    tail /opt/nest/logs/augment.log
+    Verify logging is working
+
+[ ] 18. TEST NETWORK LISTENER
+    ./services/listener/communication-listener.sh &
+    curl http://localhost:8080/health
+    Should respond with OK
+
+[ ] 19. VERIFY SECURITY
+    cat /etc/pve/lxc/100.conf | grep unprivileged
+    Should show: unprivileged: 1
+    dmesg | grep apparmor
+    Verify AppArmor is active
+
+[ ] 20. FINAL SYSTEM TEST
+    cd /opt/nest
+    Run each service and verify functionality
+    Check all logs for errors
+    Verify container can restart: pct restart 100
+
+TROUBLESHOOTING CHECKLIST
+=========================
+
+If deployment fails:
+
+[ ] Container won't start
+    - Check: pct status 100
+    - Review: /var/log/pve/tasks/
+    - Verify: Template exists and is valid
+
+[ ] Package installation fails
+    - Check: Network connectivity in container
+    - Try: apk update inside container
+    - Verify: /etc/resolv.conf has DNS servers
+
+[ ] Services fail to run
+    - Check: File permissions (chmod +x)
+    - Verify: Python3 and bash are installed
+    - Review: Service-specific logs
+
+[ ] AppArmor blocks operations
+    - Check: dmesg | grep apparmor
+    - Review: AppArmor profile
+    - Consider: Adjusting security policy
+
+COMPLETION
+==========
+
+[ ] All services operational
+[ ] All tests passing
+[ ] Logs showing activity
+[ ] Container survives restart
+[ ] Documentation reviewed
+[ ] Backup of container created: vzdump 100
+
+DEPLOYMENT COMPLETE - THE NEST IS READY!

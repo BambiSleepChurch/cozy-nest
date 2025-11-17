@@ -1,0 +1,109 @@
+
+OPTION 1: DIRECT SCP TRANSFER
+==============================
+
+Replace YOUR_PROXMOX_IP with your actual Proxmox host IP address
+
+# Transfer entire repository
+scp -r "f:\%LuamGuaMoll€" root@YOUR_PROXMOX_IP:/opt/cozy-nest
+
+# Or if you prefer individual components:
+scp -r "f:\%LuamGuaMoll€\scripts" root@YOUR_PROXMOX_IP:/opt/cozy-nest/
+scp -r "f:\%LuamGuaMoll€\services" root@YOUR_PROXMOX_IP:/opt/cozy-nest/
+scp -r "f:\%LuamGuaMoll€\docs" root@YOUR_PROXMOX_IP:/opt/cozy-nest/
+scp "f:\%LuamGuaMoll€\*.md" root@YOUR_PROXMOX_IP:/opt/cozy-nest/
+
+
+OPTION 2: RSYNC (More Efficient)
+=================================
+
+# Install rsync first if not available
+# Transfer with progress and compression
+rsync -avz --progress "f:\%LuamGuaMoll€/" root@YOUR_PROXMOX_IP:/opt/cozy-nest/
+
+
+OPTION 3: USING WINSCP (GUI)
+============================
+
+1. Download WinSCP: https://winscp.net/
+2. Connect to: YOUR_PROXMOX_IP
+3. Protocol: SCP
+4. Username: root
+5. Drag and drop: f:\%LuamGuaMoll€ -> /opt/cozy-nest/
+
+
+OPTION 4: GIT CLONE ON PROXMOX
+===============================
+
+# SSH into Proxmox first
+ssh root@YOUR_PROXMOX_IP
+
+# Then on Proxmox host:
+cd /opt
+git clone https://github.com/BambiSleepChurch/cozy-nest.git
+cd cozy-nest
+
+# This is the RECOMMENDED method - always gets latest version!
+
+
+VERIFICATION COMMANDS (Run on Proxmox after transfer)
+=====================================================
+
+# List transferred files
+ls -la /opt/cozy-nest/
+
+# Check file sizes
+du -sh /opt/cozy-nest/
+
+# Verify scripts are present
+ls -la /opt/cozy-nest/scripts/
+
+# Verify services are present
+ls -la /opt/cozy-nest/services/
+
+
+QUICK DEPLOYMENT (After Git Clone)
+===================================
+
+ssh root@YOUR_PROXMOX_IP
+cd /opt/cozy-nest
+nano scripts/deploy-nest.sh  # CHANGE ROOT_PASSWORD!
+chmod +x scripts/*.sh
+./scripts/deploy-nest.sh
+
+
+EXAMPLE WITH ACTUAL IP
+======================
+
+If your Proxmox is at 192.168.1.100:
+
+# Method 1: SCP
+scp -r "f:\%LuamGuaMoll€" root@192.168.1.100:/opt/cozy-nest
+
+# Method 2: SSH + Git
+ssh root@192.168.1.100
+cd /opt && git clone https://github.com/BambiSleepChurch/cozy-nest.git
+cd cozy-nest && nano scripts/deploy-nest.sh
+chmod +x scripts/*.sh && ./scripts/deploy-nest.sh
+
+
+WINDOWS POWERSHELL SPECIFIC
+===========================
+
+# From PowerShell (if OpenSSH is installed)
+scp -r "$env:USERPROFILE\path\to\cozy-nest" root@YOUR_PROXMOX_IP:/opt/
+
+# Or use built-in compression
+Compress-Archive -Path "f:\%LuamGuaMoll€\*" -DestinationPath cozy-nest.zip
+scp cozy-nest.zip root@YOUR_PROXMOX_IP:/tmp/
+ssh root@YOUR_PROXMOX_IP "cd /opt && unzip /tmp/cozy-nest.zip -d cozy-nest"
+
+
+SECURITY NOTE
+=============
+
+If you get SSH key verification warnings:
+- First time: Type "yes" to accept host key
+- Persistent issues: Check ~/.ssh/known_hosts
+- Use key-based auth for better security:
+  ssh-copy-id root@YOUR_PROXMOX_IP

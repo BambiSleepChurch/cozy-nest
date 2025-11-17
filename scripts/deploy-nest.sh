@@ -32,7 +32,7 @@ MEMORY=2048
 SWAP=512
 CORES=2
 DISK_SIZE=8
-ROOT_PASSWORD="ChangeMe123!"  # ⚠️ CHANGE THIS!
+ROOT_PASSWORD="nyks=strix=rog=zzz=490=€"  # ✅
 
 echo ""
 echo "=========================================="
