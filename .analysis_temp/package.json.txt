@@ -1,0 +1,32 @@
+FILE: package.json
+LINES: 28
+============================================================
+
+{
+  "name": "guamole",
+  "version": "0.0.7",
+  "description": "das guacamole meines Cheesuses",
+  "keywords": [
+    "zerga",
+    "nuka",
+    "tron",
+    "nest",
+    "winter",
+    "is",
+    "cumming"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "Larvae__mk-007"
+  },
+  "license": "MIT",
+  "author": "HarleyVader",
+  "type": "module",
+  "main": "index.js",
+  "directories": {
+    "doc": "docs"
+  },
+  "scripts": {
+    "test": "node nest.js"
+  }
+}

@@ -1,0 +1,104 @@
+FILE: QUICKSTART.md
+LINES: 355
+============================================================
+
+# 🎉 YOUR COZY NEST IS READY!
+
+## What We Built (In Big Letters)
+
+You now have a complete **secure monitoring and automation system** called "The Cozy Nest"!
+
+---
+
+## 📦 WHAT'S IN THE BOX
+
+### 1. 🛡️ BambiSleep Security Container
+
+**File:** `scripts/deploy-nest.sh`
+
+This is your fortress! An unprivileged Alpine Linux container that:
+
+- ✅ Isolates everything for safety
+- ✅ Uses AppArmor security profiles
+- ✅ Runs on minimal resources (2GB RAM, 8GB disk)
+- ✅ Automatically starts on boot
+
+### 2. 📡 Communication Listener
+
+**File:** `services/listener/communication-listener.sh`
+
+Listens for incoming messages on port 8080:
+
+- ✅ Logs all connections
+- ✅ Receives JSON payloads
+- ✅ Can trigger alerts
+
+### 3. 🔍 Probe Launcher
+
+**File:** `services/probe-launcher/probe.sh`
+
+Your network reconnaissance tool:
+
+- ✅ Ping probes (basic connectivity)
+- ✅ Port scans (find open services)
+- ✅ Service detection (identify what's running)
+- ✅ Stealth mode (ultra-quiet scanning)
+
+**Usage:**
+
+```bash
+./probe.sh 192.168.1.1 ping       # Simple ping
+./probe.sh 192.168.1.1 port       # Scan common ports
+./probe.sh 192.168.1.1 stealth    # Ultra quiet
+```
+
+### 4. 🎆 Flare System
+
+**File:** `services/flare-system/flare.sh`
+
+Your alert broadcaster:
+
+- ✅ Send notifications (INFO, WARNING, CRITICAL)
+- ✅ Monitor system resources automatically
+- ✅ Alert on disk space, memory, file queue
+
+**Usage:**
+
+```bash
+./flare.sh send "System healthy" INFO
+./flare.sh monitor    # Auto-monitor
+```
+
+### 5. 📦 Dropbox Processor
+
+**File:** `services/dropbox/dropbox-processor.sh`
+
+Automated file handler:
+
+- ✅ Watches `/opt/nest/dropbox/incoming/` for new files
+- ✅ Processes them automatically
+- ✅ Archives completed files
+- ✅ Detects file types (text, JSON, images, archives)
+
+**Usage:**
+
+```bash
+./dropbox-processor.sh monitor    # Start watching
+./dropbox-processor.sh test       # Create test file
+./dropbox-processor.sh cleanup 30 # Remove old archives
+```
+
+### 6. 🤖 The Augment
+
+**File:** `services/augment/augment.py`
+
+Your AI assistant:
+
+- ✅ Natural language interface
+- ✅ Monitors all components
+- ✅ Health checking
+- ✅ Orchestrates other services
+
+**Usage:**
+
+```bash
