@@ -1,0 +1,394 @@
+
+================================================================================
+  PROXMOX WEB UI DEPLOYMENT GUIDE - COZY NEST
+================================================================================
+
+PREREQUISITES:
+1. Proxmox VE 7.0+ installed and accessible via web browser
+2. Access credentials (root or privileged user)
+3. Internet connection for downloading Alpine Linux template
+
+================================================================================
+QUICK START - DEPLOY VIA PROXMOX SHELL (RECOMMENDED)
+================================================================================
+
+1. CONNECT TO PROXMOX
+   
+   Open Proxmox web interface: https://[YOUR-PROXMOX-IP]:8006
+   Login with root credentials
+   Click your node in left panel
+   Click "Shell" button
+   
+   OR: ssh root@[YOUR-PROXMOX-IP]
+
+2. DOWNLOAD & RUN DEPLOYMENT
+   
+   cd /opt
+   git clone https://github.com/BambiSleepChurch/cozy-nest.git
+   cd cozy-nest
+   chmod +x scripts/deploy-nest.sh
+   ./scripts/deploy-nest.sh
+
+3. WAIT FOR COMPLETION (3-5 minutes)
+   
+   Watch for green checkmarks (success)
+   Yellow warnings may need attention
+   Red errors mean deployment failed
+
+4. VERIFY DEPLOYMENT
+   
+   pct status 100              # Should show: running
+   pct enter 100               # Enter container
+   ls -la /opt/nest/           # Verify structure
+   python3 /opt/nest/services/augment/augment.py health
+   exit                        # Back to Proxmox host
+
+================================================================================
+DETAILED DEPLOYMENT STEPS
+================================================================================
+
+STEP 1: Access Proxmox Shell
+-----------
+Web UI Method:
+  - Navigate to https://[YOUR-PROXMOX-IP]:8006
+  - Enter root credentials
+  - Select your node (e.g., "pve") in datacenter view
+  - Click "Shell" button in top toolbar
+
+Direct SSH Method:
+  ssh root@[YOUR-PROXMOX-IP]
+
+STEP 2: Download Project
+-----------
+cd /opt
+git clone https://github.com/BambiSleepChurch/cozy-nest.git
+cd cozy-nest
+
+If git not available:
+  wget https://github.com/BambiSleepChurch/cozy-nest/archive/refs/heads/main.zip
+  unzip main.zip
+  mv cozy-nest-main cozy-nest
+  cd cozy-nest
+
+STEP 3: Review Configuration (Optional)
+-----------
+nano scripts/deploy-nest.sh
+
+Key settings to check:
+  CONTAINER_ID=100          # Change if 100 already in use
+  ROOT_PASSWORD=...         # Already configured
+  MEMORY=2048              # MB of RAM
+  DISK_SIZE=8              # GB of disk space
+  CORES=2                  # CPU cores
+
+Press Ctrl+X to exit (Y to save changes)
+
+STEP 4: Make Script Executable
+-----------
+chmod +x scripts/deploy-nest.sh
+ls -lh scripts/deploy-nest.sh
+
+STEP 5: Run Deployment
+-----------
+./scripts/deploy-nest.sh
+
+The script automatically:
+  - Checks for Proxmox VE
+  - Downloads Alpine Linux template
+  - Creates container ID 100
+  - Installs packages
+  - Creates directory structure
+  - Sets permissions
+
+Expected runtime: 3-5 minutes
+
+STEP 6: Monitor Progress
+-----------
+Look for these indicators:
+  [GREEN CHECKMARK] = Success
+  [YELLOW WARNING]  = Review needed
+  [RED X]          = Error occurred
+
+STEP 7: Verify Container Status
+-----------
+pct status 100
+
+Expected output: status: running
+
+STEP 8: Enter Container
+-----------
+pct enter 100
+
+You are now inside the Alpine Linux container
+
+STEP 9: Verify Structure
+-----------
+Inside container, run:
+
+ls -la /opt/nest/
+
+Expected directories:
+  services/    - Service scripts
+  dropbox/     - File processing areas
+  logs/        - Log files
+  config/      - Configuration files
+
+STEP 10: Test Services
+-----------
+Still inside container:
+
+python3 /opt/nest/services/augment/augment.py health
+
+This tests the augment AI service
+
+Check permissions:
+ls -ld /opt/nest/dropbox/*/
+
+Expected:
+  incoming/   - rwxrwxrwx (777)
+  processing/ - rwxr-xr-x (755)
+  archive/    - rwxr-xr-x (755)
+
+STEP 11: Exit Container
+-----------
+exit
+
+You are back on the Proxmox host
+
+================================================================================
+POST-DEPLOYMENT COMMANDS
+================================================================================
+
+From Proxmox Host:
+------------------
+pct status 100                    # Check if running
+pct stop 100                      # Stop container
+pct start 100                     # Start container
+pct restart 100                   # Restart container
+pct enter 100                     # Enter container shell
+pct list | grep 100               # List container info
+pct config 100                    # Show configuration
+pct exec 100 -- [command]         # Run command in container
+
+Container Management:
+------------------
+pct exec 100 -- ls -la /opt/nest/services/
+pct exec 100 -- python3 /opt/nest/services/augment/augment.py health
+pct exec 100 -- tail -f /opt/nest/logs/*.log
+
+Network Checks:
+------------------
+pct exec 100 -- ip addr show
+pct exec 100 -- ping -c 3 8.8.8.8
+
+Backup Container:
+------------------
+vzdump 100 --dumpdir /var/lib/vz/dump
+
+================================================================================
+TROUBLESHOOTING
+================================================================================
+
+Container Won't Start:
+  CHECK: pct status 100
+  CHECK: journalctl -xe
+  FIX:   pct start 100
+
+Script Says "Not Proxmox":
+  CHECK: Run on Proxmox host, not inside container or workstation
+  FIX:   Connect to actual Proxmox VE server
+
+Container ID Conflict:
+  CHECK: pct list
+  FIX:   Edit CONTAINER_ID in deploy-nest.sh or destroy existing
+
+Permission Errors:
+  CHECK: pct exec 100 -- ls -la /opt/nest
+  FIX:   pct exec 100 -- chmod -R 755 /opt/nest
+  FIX:   pct exec 100 -- chmod 777 /opt/nest/dropbox/incoming
+
+Network Issues:
+  CHECK: pct config 100 | grep net
+  FIX:   Verify vmbr0 bridge exists
+  FIX:   Check firewall rules
+
+Python Errors:
+  CHECK: pct exec 100 -- python3 --version
+  FIX:   pct exec 100 -- apk add python3 py3-pip
+
+Bash Not Found:
+  FIX:   pct exec 100 -- apk add bash
+
+Template Not Found:
+  CHECK: pveam list local
+  FIX:   pveam update
+  FIX:   pveam download local alpine-3.19-default_20240207_amd64.tar.xz
+
+================================================================================
+MANUAL DEPLOYMENT (IF SCRIPT FAILS)
+================================================================================
+
+1. Download Alpine Template:
+   Proxmox UI > Storage (local) > CT Templates > Templates button
+   Search: alpine
+   Download: alpine-3.19-default
+
+2. Create Container:
+   Click "Create CT"
+   
+   General:
+     CT ID: 100
+     Hostname: bambisleep-nest
+     Unprivileged: YES
+     Password: [secure password]
+   
+   Template:
+     Storage: local
+     Template: alpine-3.19-default
+   
+   Root Disk:
+     Storage: local-lvm
+     Size: 8 GB
+   
+   CPU:
+     Cores: 2
+   
+   Memory:
+     Memory: 2048 MB
+     Swap: 512 MB
+   
+   Network:
+     Bridge: vmbr0
+     IPv4: DHCP
+     Firewall: YES
+   
+   Confirm: Start after created: YES
+
+3. Access Console:
+   Select container 100
+   Click "Console"
+   Login as root
+
+4. Install Packages:
+   apk update
+   apk add bash git python3 py3-pip nmap tcpdump inotify-tools
+
+5. Clone Project:
+   cd /opt
+   git clone https://github.com/BambiSleepChurch/cozy-nest.git
+
+6. Create Structure:
+   mkdir -p /opt/nest/{services,dropbox/{incoming,processing,archive},logs,config}
+   chmod 755 /opt/nest
+   chmod 777 /opt/nest/dropbox/incoming
+
+7. Copy Services:
+   cp -r /opt/cozy-nest/services/* /opt/nest/services/
+   chmod +x /opt/nest/services/*/*.sh
+
+================================================================================
+ACCESSING THE DEPLOYED CONTAINER
+================================================================================
+
+Method 1 - Proxmox Web UI:
+  Select container 100 in left panel
+  Click "Shell" button
+  You are now inside the container
+
+Method 2 - Proxmox Host Shell:
+  pct enter 100
+  You are now inside the container
+
+Method 3 - SSH (if configured):
+  ssh root@[CONTAINER-IP]
+
+Inside Container Commands:
+  ls -la /opt/nest/                    # View structure
+  cd /opt/nest                         # Navigate to nest
+  tail -f logs/*.log                   # Monitor logs
+  python3 services/augment/augment.py health   # Test augment
+
+================================================================================
+SUCCESS INDICATORS
+================================================================================
+
+Container Running:
+  - Green status icon in Proxmox UI
+  - pct status 100 shows "running"
+  
+Directory Structure:
+  - /opt/nest/ exists
+  - services/ dropbox/ logs/ config/ present
+  
+Services Deployed:
+  - augment.py
+  - dropbox-processor.sh
+  - flare.sh
+  - probe.sh
+  - communication-listener.sh
+  
+Permissions Correct:
+  - /opt/nest/dropbox/incoming/ is 777
+  - Other directories are 755
+  
+Network Active:
+  - Can ping 8.8.8.8
+  - Has IP address assigned
+
+================================================================================
+DEPLOYMENT VERIFICATION CHECKLIST
+================================================================================
+
+[ ] Container 100 created and running
+[ ] Alpine Linux installed
+[ ] All packages installed (bash, python3, nmap, etc)
+[ ] Directory structure created at /opt/nest/
+[ ] All 5 services present in /opt/nest/services/
+[ ] Dropbox directories created with correct permissions
+[ ] Python augment service responds to health check
+[ ] Network connectivity working
+[ ] Can access container via pct enter 100
+[ ] Logs directory created
+[ ] No error messages during deployment
+
+================================================================================
+NEXT STEPS AFTER DEPLOYMENT
+================================================================================
+
+1. Test individual services
+2. Configure service automation
+3. Setup log rotation
+4. Test file dropbox with sample files
+5. Configure flare notification channels
+6. Setup probe scanning schedules
+7. Configure external monitoring
+8. Backup container configuration
+
+================================================================================
+SUPPORT & DOCUMENTATION
+================================================================================
+
+GitHub Repository:
+  https://github.com/BambiSleepChurch/cozy-nest
+
+Documentation:
+  README.md
+  docs/SETUP.md
+  QUICKSTART.md
+  DEPLOYMENT_CHECKLIST.txt
+
+Container Location:
+  /opt/cozy-nest/ on Proxmox host
+  /opt/nest/ inside container
+
+================================================================================
+SECURITY NOTES
+================================================================================
+
+[IMPORTANT] This container is UNPRIVILEGED - keep it that way!
+[IMPORTANT] AppArmor is ENABLED for additional security
+[IMPORTANT] Firewall is ENABLED on network interface
+[IMPORTANT] Change root password after first login
+[IMPORTANT] Review security configuration regularly
+
+================================================================================
