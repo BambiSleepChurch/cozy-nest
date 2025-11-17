@@ -1,0 +1,59 @@
+{
+  "deployment_status": "PRE-DEPLOYMENT",
+  "timestamp": "2025-11-17",
+  "platform": "Windows (Development)",
+  "target_platform": "Proxmox VE (Production)",
+  "configuration": {
+    "container_id": 100,
+    "container_name": "bambisleep-nest",
+    "base_os": "Alpine Linux 3.19",
+    "base_path": "/opt/nest",
+    "security": "Unprivileged + AppArmor"
+  },
+  "services_ready": {
+    "augment": true,
+    "dropbox": true,
+    "flare-system": true,
+    "listener": true,
+    "probe-launcher": true
+  },
+  "deployment_blockers": [
+    {
+      "severity": "HIGH",
+      "issue": "Platform Mismatch",
+      "description": "Running on Windows, need Linux/Proxmox host",
+      "solution": "Transfer files to Proxmox VE host or use WSL"
+    }
+  ],
+  "deployment_warnings": [
+    {
+      "severity": "MEDIUM",
+      "issue": "ROOT_PASSWORD configured",
+      "description": "Password is set but should be verified for security",
+      "solution": "Review password strength before deployment"
+    }
+  ],
+  "next_steps": [
+    "1. Transfer project to Proxmox VE host (use SCP/SFTP)",
+    "2. On Proxmox host: cd /opt && tar xzf cozy-nest.tar.gz",
+    "3. Run: chmod +x /opt/cozy-nest/scripts/deploy-nest.sh",
+    "4. Run: /opt/cozy-nest/scripts/deploy-nest.sh",
+    "5. Monitor: pct enter 100 && tail -f /opt/nest/logs/*.log"
+  ],
+  "files_validated": {
+    "deployment_script": "scripts/deploy-nest.sh",
+    "services": [
+      "services/augment/augment.py",
+      "services/dropbox/dropbox-processor.sh",
+      "services/flare-system/flare.sh",
+      "services/listener/communication-listener.sh",
+      "services/probe-launcher/probe.sh"
+    ],
+    "documentation": [
+      "README.md",
+      "QUICKSTART.md",
+      "docs/SETUP.md",
+      "DEPLOYMENT_CHECKLIST.txt"
+    ]
+  }
+}

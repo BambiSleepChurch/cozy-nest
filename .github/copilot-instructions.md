@@ -2,41 +2,81 @@
 
 ## Project Overview
 
-**The Cozy Nest** is a secure, containerized monitoring and automation infrastructure built on Proxmox VE with LXC containers. It provides a minimal-footprint security system capable of monitoring networks, processing files, and deploying alerts.
+**The Cozy Nest** is a containerized security monitoring infrastructure built on Proxmox VE using unprivileged Alpine Linux LXC containers. It provides network monitoring, file processing, and alert deployment in a minimal-footprint, security-hardened environment.
 
 **Core Philosophy:** Tiny, Cozy, Secure - able to withstand any storm.
 
-**Key Components:**
+**Architecture Pattern:** Microservices within a single LXC container, communicating via filesystem and logs rather than network sockets. The Augment acts as the intelligent orchestrator.
 
-- 🛡️ **BambiSleep Security Container** - Unprivileged Alpine Linux LXC with AppArmor isolation
-- 📡 **Communication Listener** - Network monitoring and connection logging service
-- 🔍 **Probe Launcher** - Stealth network scanning and reconnaissance tools
-- 🎆 **Flare System** - Multi-channel alert and notification deployment
-- 📦 **Dropbox Processor** - Automated file monitoring with inotify and processing pipelines
-- 🤖 **The Augment** - Python-based AI assistant for nest management
+## System Architecture
 
-## Development Workflow
+### Container Infrastructure
+
+- **Platform:** Proxmox VE 7.0+ with LXC (not Docker)
+- **Base OS:** Alpine Linux (~5MB base)
+- **Security Model:** Unprivileged containers + AppArmor MAC
+- **Default Container ID:** 100 (configurable in `deploy-nest.sh`)
+- **Base Path:** `/opt/nest` inside container
+
+### Service Components
+
+All services are stateless where possible and communicate via filesystem:
+
+1. **Augment** (`services/augment/augment.py`)
+   - Python-based AI orchestrator (class: `NestAugment`)
+   - Monitors all services via log files
+   - Can invoke other services as shell commands
+   - Provides health checks and natural language interface
+
+2. **Dropbox Processor** (`services/dropbox/dropbox-processor.sh`)
+   - inotify-based file monitoring
+   - Three-stage processing: `incoming/` → `processing/` → `archive/`
+   - Only `incoming/` is world-writable (777); others are restricted
+
+3. **Flare System** (`services/flare-system/flare.sh`)
+   - Multi-channel alert deployment (logs, email, webhooks)
+   - Structured JSON logging to `flares.log`
+
+4. **Probe Launcher** (`services/probe-launcher/probe.sh`)
+   - Network scanning via nmap
+   - Results written to `probes.log` with timestamps
+
+5. **Communication Listener** (`services/listener/communication-listener.sh`)
+   - Netcat-based network monitoring
+   - Logs connections and received data
+
+## Critical Developer Workflows
 
 ### Deployment (on Proxmox VE host)
 
 ```bash
 cd /opt/cozy-nest
 chmod +x scripts/*.sh
-# Review and change ROOT_PASSWORD in deploy-nest.sh first!
+# CRITICAL: Review and change ROOT_PASSWORD in deploy-nest.sh first!
 ./scripts/deploy-nest.sh
 ```
 
-### Accessing the Nest
+**Common deployment issues:**
+- Container ID 100 already exists → Script prompts for override
+- AppArmor blocking operations → Check `dmesg | grep apparmor` in container
+- File permissions wrong → Ensure `dropbox/incoming/` is 777, others are restricted
+
+### Accessing the Container
 
 ```bash
-# Enter container
+# Enter container (Proxmox host)
 pct enter 100
 
 # Check status
 pct status 100
+
+# View logs inside container
+tail -f /opt/nest/logs/*.log
 ```
 
-### Testing Services
+### Testing Individual Services
+
+Each service has a `test` command for validation:
 
 ```bash
 # Inside container at /opt/nest
@@ -46,9 +86,12 @@ python3 ../services/augment/augment.py health
 ../services/probe-launcher/probe.sh localhost ping
 ```
 
+Always test individual components before integration.
+
 ### Starting All Services
 
 ```bash
+# Inside container
 /opt/nest/start-all.sh
 ```
 
@@ -65,11 +108,11 @@ nest/
 │   ├── probe-launcher/ # Bash/nmap probes
 │   ├── flare-system/ # Bash alert system
 │   └── dropbox/      # Bash file processor
-├── containers/       # LXC configs (future)
 ├── dropbox/          # File processing directories
 │   ├── incoming/     # Upload here (chmod 777)
 │   ├── processing/   # Active processing
 │   └── archive/      # Completed files
+├── logs/             # Centralized logging
 └── docs/             # Markdown documentation
 ```
 
@@ -79,116 +122,93 @@ nest/
 - **Python modules:** `snake_case.py` (e.g., `augment.py`)
 - **Service names:** Lowercase with hyphens (e.g., `bambisleep-nest`)
 - **Log files:** Component-based (e.g., `dropbox.log`, `flares.log`)
-- **Container ID:** Default is 100 (configurable in deployment script)
 
 ### Code Style
 
-- **Bash scripts:** Always use `set -e` for error handling, include descriptive headers
-- **Python:** Follow PEP 8, use logging module for all output
-- **Security:** Unprivileged containers ALWAYS, AppArmor enabled unless documented exception
-- **Logging:** Structured JSON for important events, human-readable for general logs
+**Bash scripts:**
+```bash
+#!/bin/bash
+set -e  # Always fail on errors
+# Descriptive header explaining purpose
+```
 
-## Architecture Patterns
+**Python:**
+- Follow PEP 8
+- Use `logging` module for all output (no print statements)
+- Standard library only (avoid external dependencies)
 
-### Component Structure
+**Security:**
+- Unprivileged containers ALWAYS (never set privileged=1)
+- AppArmor enabled unless documented exception
+- Minimal network permissions per service
 
-Each service runs independently within the Alpine LXC container:
+## Data Flow Patterns
 
-- Services are **stateless** where possible
-- Communication via filesystem (`/opt/nest/dropbox`) and logs
-- The Augment acts as orchestrator and can invoke other services
-- All services log to `/opt/nest/logs/` for centralized monitoring
-
-### Data Flow
-
-1. Files arrive in `/opt/nest/dropbox/incoming/` (watched by inotify)
-2. Dropbox processor moves to `processing/`, handles file, archives to `archive/`
-3. Flares are logged to `flares.log` and displayed to console/sent to channels
-4. Probes write results to `probes.log` with timestamp and target info
-5. Augment monitors all logs and can trigger actions based on events
-
-### Security Model
-
-- **Unprivileged containers** - UID 0 inside maps to unprivileged UID outside
-- **AppArmor** - Mandatory access control restricts dangerous syscalls
-- **CGroups** - Resource limits prevent resource exhaustion
-- **Network isolation** - Each component has minimal network permissions
-- **File permissions** - Only `incoming/` is world-writable; others are restricted
-
-## Key Dependencies
-
-**Container (Alpine Linux):**
-
-- `bash` - Service scripts
-- `python3` + `py3-pip` - Augment AI assistant
-- `nmap` - Network probing
-- `tcpdump` - Packet capture
-- `inotify-tools` - File monitoring
-- `openssh` - Remote access
-- `supervisor` - Process management (optional)
-
-**Python packages (for Augment):**
-
-- Standard library only (json, logging, pathlib, datetime)
-- Future: requests, flask for HTTP API
+1. **File Processing:** Files → `dropbox/incoming/` → inotify trigger → move to `processing/` → process → `archive/`
+2. **Alerts:** Service event → call `flare.sh` → log to `flares.log` + optional external channels
+3. **Network Scanning:** Command → `probe.sh` → nmap execution → results to `probes.log`
+4. **Orchestration:** Augment monitors logs → detects events → invokes appropriate service
 
 ## Integration Points
 
 ### External Access
 
-- **HTTP API (port 8080):** Communication listener receives JSON payloads
-- **SSH:** Direct container access via `pct enter` or SSH after enabling
-- **File uploads:** Drop files in `/opt/nest/dropbox/incoming/` via SFTP/SMB/NFS
+- **HTTP API (port 8080):** Communication listener accepts JSON payloads
+- **SSH:** Direct container access via `pct enter` or SSH (if enabled)
+- **File Uploads:** Drop files in `/opt/nest/dropbox/incoming/` via SFTP/SMB/NFS
 
-### Notification Channels (configurable in flare system)
+### Notification Channels
 
-- Log files (default)
-- Email (SMTP - to be implemented)
-- Webhooks (HTTP POST - to be implemented)
-- Slack/Discord (API - to be implemented)
+Configurable in flare system:
+- Log files (default, always enabled)
+- Email via SMTP (to be implemented)
+- Webhooks HTTP POST (to be implemented)
+- Slack/Discord API (to be implemented)
 
-### Proxmox Integration
+## Common Pitfalls & Solutions
 
-- Uses `pct` CLI for container management
-- Container config in `/etc/pve/lxc/100.conf`
-- Uses Proxmox storage for container rootfs
+1. **Forgot to change ROOT_PASSWORD:** Always review `deploy-nest.sh` before deploying
+2. **AppArmor blocking operations:** Check `dmesg | grep apparmor` if services fail mysteriously
+3. **Wrong file permissions:** `incoming/` needs 777, but `processing/`/`archive/` should be restricted
+4. **Running as privileged:** Never do this; defeats the entire security model
+5. **Scripts not executable:** Use `chmod +x` on all `.sh` files before running
+6. **Hardcoded paths:** Scripts assume `/opt/nest` base; changing requires updates across multiple files
+7. **Container ID conflicts:** Default is 100; script prompts for override if exists
 
-## Common Pitfalls
-
-1. **Forgetting to change ROOT_PASSWORD** in deployment script - always review before deploying
-2. **AppArmor blocking operations** - Check `dmesg | grep apparmor` if services fail mysteriously
-3. **File permissions in dropbox** - `incoming/` needs 777, but processing/archive should be restricted
-4. **Running as privileged** - Never do this; defeats the security model
-5. **Not making scripts executable** - Use `chmod +x` on all `.sh` files
-6. **Hardcoded paths** - Scripts assume `/opt/nest` base directory; changing requires updates
-7. **Container ID conflicts** - Deployment fails if container 100 exists; script prompts for override
-
-## Helpful Context
+## Project-Specific Patterns
 
 ### Why Alpine Linux?
-
-Minimal attack surface (~5MB base), fast boot, apk package manager is simple and secure.
+Minimal attack surface (~5MB base), fast boot times, secure apk package manager.
 
 ### Why Unprivileged Containers?
+Security by design - container escapes affect unprivileged user, not root. This is the default and should NEVER be changed without documented justification.
 
-Security by design - container escapes affect unprivileged user, not root. This is the default and should never be changed without strong justification.
+### Why Filesystem Communication?
+Simpler than network sockets, easier to debug, more secure (no listening ports between services).
 
 ### The Augment's Role
+Intelligent orchestrator that reads logs, processes natural language commands, and triggers automated responses to events.
 
-Acts as intelligent orchestrator - monitors all components, processes natural language commands, and can trigger automated responses to events (file arrivals, system alerts, etc.).
+## Key Dependencies
 
-### Service Communication
+**Container (Alpine Linux):**
+- `bash`, `python3`, `py3-pip` - Core runtimes
+- `nmap`, `tcpdump` - Network tools
+- `inotify-tools` - File monitoring
+- `openssh` - Remote access
+- `supervisor` - Process management (optional)
 
-Services communicate via filesystem and logs rather than network sockets for simplicity and security. The Augment reads logs and can invoke other services as shell commands.
+**Python packages (Augment):**
+- Standard library only: `json`, `logging`, `pathlib`, `datetime`, `os`, `sys`, `time`
+- Future: `requests`, `flask` for HTTP API
 
-### Deployment Target
+## Documentation References
 
-Designed for **Proxmox VE 7.0+** with LXC container support. Not compatible with Docker or other container runtimes without significant modifications.
-
-### Testing Philosophy
-
-All services have a `test` command for quick validation. Always test individual components before integration.
+- **Setup Guide:** `docs/SETUP.md` - Step-by-step deployment with screenshots
+- **Quick Start:** `QUICKSTART.md` - Rapid deployment commands
+- **Deployment Checklist:** `DEPLOYMENT_CHECKLIST.txt` - Pre-deployment verification
+- **File Index:** `FILE_INDEX.md` - Complete file listing with descriptions
 
 ---
 
-**For Mr. Magoo:** See `docs/SETUP.md` for step-by-step instructions with big friendly letters! 👓
+**For Mr. Magoo:** See `docs/SETUP.md` for big friendly letters and pictures! 👓

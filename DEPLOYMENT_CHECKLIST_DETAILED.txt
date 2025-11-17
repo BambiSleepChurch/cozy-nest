@@ -1,0 +1,40 @@
+
+=== COZY NEST DEPLOYMENT CHECKLIST ===
+
+PRE-DEPLOYMENT:
+[ ] Review ROOT_PASSWORD in scripts/deploy-nest.sh
+[ ] Verify Proxmox VE host is accessible
+[ ] Ensure Alpine Linux template is available
+[ ] Check storage 'local-lvm' exists on Proxmox
+[ ] Container ID 100 is available (or change in script)
+
+TRANSFER TO PROXMOX:
+[ ] Package project: tar czf cozy-nest.tar.gz .
+[ ] SCP to Proxmox: scp cozy-nest.tar.gz root@proxmox:/opt/
+[ ] Extract on Proxmox: cd /opt && tar xzf cozy-nest.tar.gz
+
+DEPLOYMENT:
+[ ] Make script executable: chmod +x scripts/deploy-nest.sh
+[ ] Run deployment: ./scripts/deploy-nest.sh
+[ ] Wait for container creation and configuration
+[ ] Check container status: pct status 100
+
+POST-DEPLOYMENT:
+[ ] Enter container: pct enter 100
+[ ] Verify services: ls -la /opt/nest/services/*/
+[ ] Check logs: tail -f /opt/nest/logs/*.log
+[ ] Test augment: python3 /opt/nest/services/augment/augment.py health
+[ ] Start services: /opt/nest/start-all.sh
+
+VALIDATION:
+[ ] All services running: ps aux | grep -E 'augment|dropbox|flare|probe|listener'
+[ ] Log files created: ls -lh /opt/nest/logs/
+[ ] Dropbox directories writable: ls -ld /opt/nest/dropbox/*/
+[ ] Network listener responding: nc localhost 8080
+
+TROUBLESHOOTING:
+If issues occur:
+- Check AppArmor: dmesg | grep apparmor
+- Check permissions: ls -la /opt/nest
+- Check logs: tail -f /opt/nest/logs/*.log
+- Restart services: /opt/nest/start-all.sh
