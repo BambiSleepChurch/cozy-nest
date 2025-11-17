@@ -5,18 +5,10 @@
 #
 # Usage: ./deploy-nest.sh
 #
-# This script will:
-# 1. Create the BambiSleep security container
-# 2. Setup network monitoring
-# 3. Deploy probe launcher
-# 4. Configure flare system
-# 5. Setup file dropbox
-# 6. Install the augment
-#
 
 set -e  # Exit on any error
 
-# Colors for output (big friendly letters)
+# Colors for output
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
@@ -26,13 +18,12 @@ NC='\033[0m' # No Color
 # Configuration
 CONTAINER_ID=100
 CONTAINER_NAME="bambisleep-nest"
-TEMPLATE="local:vztmpl/alpine-3.19-default_20240207_amd64.tar.xz"
 STORAGE="local-lvm"
 MEMORY=2048
 SWAP=512
 CORES=2
 DISK_SIZE=8
-ROOT_PASSWORD="nyks=strix=rog=zzz=490=€"  # ✅
+ROOT_PASSWORD="nyks=strix=rog=zzz=490=€"
 
 echo ""
 echo "=========================================="
@@ -50,15 +41,52 @@ fi
 echo -e "${GREEN}✅ Proxmox VE detected${NC}"
 echo ""
 
-# Step 2: Download Alpine Linux template if needed
-echo -e "${BLUE}📋 STEP 2: Checking Alpine Linux template...${NC}"
-if ! pveam list local | grep -q "alpine-3.19"; then
-    echo "   Downloading Alpine Linux template (this may take a moment)..."
-    pveam update
-    pveam download local alpine-3.19-default_20240207_amd64.tar.xz
-else
-    echo -e "${GREEN}✅ Alpine Linux template found${NC}"
+# Step 2: Find and download Alpine Linux template
+echo -e "${BLUE}📋 STEP 2: Finding Alpine Linux template...${NC}"
+
+# Update template list
+pveam update
+
+# List available Alpine templates and pick the first one
+AVAILABLE_TEMPLATES=$(pveam available | grep alpine | grep "amd64\|x86_64" | head -5)
+
+if [ -z "$AVAILABLE_TEMPLATES" ]; then
+    echo -e "${RED}❌ ERROR: No Alpine templates found!${NC}"
+    echo "   Available templates:"
+    pveam available | grep -i alpine || echo "   (none found)"
+    exit 1
 fi
+
+echo "   Available Alpine templates:"
+echo "$AVAILABLE_TEMPLATES" | nl
+echo ""
+
+# Try to find an already downloaded template
+DOWNLOADED=$(pveam list local 2>/dev/null | grep -i alpine | grep "amd64\|x86_64" | head -1 | awk '{print $1}')
+
+if [ -n "$DOWNLOADED" ]; then
+    echo -e "${GREEN}✅ Found downloaded template: $DOWNLOADED${NC}"
+    TEMPLATE="$DOWNLOADED"
+else
+    # Download the first available Alpine template
+    TEMPLATE_TO_DOWNLOAD=$(echo "$AVAILABLE_TEMPLATES" | head -1 | awk '{print $1}')
+    echo "   Downloading: $TEMPLATE_TO_DOWNLOAD"
+    echo "   (This may take a moment...)"
+    
+    if pveam download local "$TEMPLATE_TO_DOWNLOAD"; then
+        echo -e "${GREEN}✅ Template downloaded successfully${NC}"
+        TEMPLATE="local:vztmpl/$TEMPLATE_TO_DOWNLOAD"
+    else
+        echo -e "${RED}❌ ERROR: Failed to download template${NC}"
+        echo ""
+        echo "   Manual fix:"
+        echo "   1. List available templates: pveam available | grep alpine"
+        echo "   2. Download one: pveam download local <template-name>"
+        echo "   3. Update TEMPLATE variable in this script"
+        exit 1
+    fi
+fi
+
 echo ""
 
 # Step 3: Create the BambiSleep container
@@ -71,31 +99,37 @@ if pct status $CONTAINER_ID &> /dev/null; then
         pct stop $CONTAINER_ID 2>/dev/null || true
         pct destroy $CONTAINER_ID
     else
-        echo "   Skipping container creation..."
-        CONTAINER_ID=$((CONTAINER_ID + 1))
+        echo "   Using existing container..."
+        CONTAINER_EXISTS=1
     fi
 fi
 
-echo "   Creating unprivileged Alpine Linux container..."
-pct create $CONTAINER_ID $TEMPLATE \
-    --hostname $CONTAINER_NAME \
-    --memory $MEMORY \
-    --swap $SWAP \
-    --cores $CORES \
-    --rootfs $STORAGE:$DISK_SIZE \
-    --unprivileged 1 \
-    --features nesting=1 \
-    --net0 name=eth0,bridge=vmbr0,firewall=1,ip=dhcp \
-    --password "$ROOT_PASSWORD" \
-    --onboot 1
+if [ -z "$CONTAINER_EXISTS" ]; then
+    echo "   Creating unprivileged Alpine Linux container..."
+    echo "   Using template: $TEMPLATE"
+    
+    pct create $CONTAINER_ID "$TEMPLATE" \
+        --hostname $CONTAINER_NAME \
+        --memory $MEMORY \
+        --swap $SWAP \
+        --cores $CORES \
+        --rootfs $STORAGE:$DISK_SIZE \
+        --unprivileged 1 \
+        --features nesting=1 \
+        --net0 name=eth0,bridge=vmbr0,firewall=1,ip=dhcp \
+        --password "$ROOT_PASSWORD" \
+        --onboot 1
 
-echo -e "${GREEN}✅ Container created (ID: $CONTAINER_ID)${NC}"
+    echo -e "${GREEN}✅ Container created (ID: $CONTAINER_ID)${NC}"
+fi
 echo ""
 
 # Step 4: Start the container
 echo -e "${BLUE}📋 STEP 4: Starting container...${NC}"
-pct start $CONTAINER_ID
-sleep 5  # Give it time to boot
+if ! pct status $CONTAINER_ID | grep -q "running"; then
+    pct start $CONTAINER_ID
+    sleep 5
+fi
 echo -e "${GREEN}✅ Container started${NC}"
 echo ""
 
@@ -115,7 +149,8 @@ pct exec $CONTAINER_ID -- ash -c "apk add \
     tcpdump \
     inotify-tools \
     nginx \
-    supervisor"
+    supervisor \
+    git"
 echo -e "${GREEN}✅ Base packages installed${NC}"
 echo ""
 
@@ -129,10 +164,18 @@ chmod 777 /opt/nest/dropbox/incoming
 echo -e "${GREEN}✅ Directory structure created${NC}"
 echo ""
 
-# Step 7: Copy service files
-echo -e "${BLUE}📋 STEP 7: Deploying services...${NC}"
-echo "   This will be done in the next steps..."
-echo -e "${GREEN}✅ Ready for service deployment${NC}"
+# Step 7: Copy service files to container
+echo -e "${BLUE}📋 STEP 7: Deploying services to container...${NC}"
+if [ -d "../services" ]; then
+    echo "   Copying services from host..."
+    pct push $CONTAINER_ID ../services /opt/nest/services -r
+    pct exec $CONTAINER_ID -- chmod +x /opt/nest/services/*/*.sh
+    pct exec $CONTAINER_ID -- chmod +x /opt/nest/services/*/*.py
+    echo -e "${GREEN}✅ Services deployed${NC}"
+else
+    echo -e "${YELLOW}⚠️  Services directory not found in expected location${NC}"
+    echo "   Services must be copied manually to /opt/nest/services/"
+fi
 echo ""
 
 # Summary
@@ -144,26 +187,25 @@ echo ""
 echo "Container ID: $CONTAINER_ID"
 echo "Container Name: $CONTAINER_NAME"
 echo "Status: Running"
+echo "Template Used: $TEMPLATE"
 echo ""
 echo "📝 NEXT STEPS:"
 echo ""
 echo "1. Connect to your nest:"
 echo "   pct enter $CONTAINER_ID"
 echo ""
-echo "2. Change the root password:"
-echo "   passwd"
+echo "2. Verify structure:"
+echo "   ls -la /opt/nest/"
 echo ""
-echo "3. Deploy services:"
-echo "   cd /opt/nest"
-echo "   ./scripts/setup-services.sh"
+echo "3. Test augment service:"
+echo "   python3 /opt/nest/services/augment/augment.py health"
 echo ""
-echo "4. Start the augment:"
-echo "   supervisorctl start augment"
+echo "4. View logs:"
+echo "   tail -f /opt/nest/logs/*.log"
 echo ""
 echo "⚠️  SECURITY NOTE:"
 echo "   This container is UNPRIVILEGED for maximum security."
 echo "   AppArmor is ENABLED."
-echo "   Please review /opt/nest/config/security.conf"
 echo ""
 echo "🎉 Your cozy nest is ready!"
 echo ""
