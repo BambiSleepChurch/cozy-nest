@@ -173,7 +173,16 @@ echo ""
 echo -e "${BLUE}📋 STEP 7: Deploying services to container...${NC}"
 if [ -d "../services" ]; then
     echo "   Copying services from host..."
-    pct push $CONTAINER_ID ../services /opt/nest/services -r
+    # Copy each service directory individually (pct push has no recursive flag)
+    for service_dir in ../services/*/; do
+        service_name=$(basename "$service_dir")
+        pct exec $CONTAINER_ID -- mkdir -p "/opt/nest/services/$service_name"
+        for file in "$service_dir"*; do
+            if [ -f "$file" ]; then
+                pct push $CONTAINER_ID "$file" "/opt/nest/services/$service_name/$(basename "$file")"
+            fi
+        done
+    done
     pct exec $CONTAINER_ID -- chmod +x /opt/nest/services/*/*.sh 2>/dev/null || true
     pct exec $CONTAINER_ID -- chmod +x /opt/nest/services/*/*.py 2>/dev/null || true
     echo -e "${GREEN}✅ Services deployed${NC}"
