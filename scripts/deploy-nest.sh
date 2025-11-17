@@ -156,11 +156,16 @@ echo ""
 
 # Step 6: Create directory structure
 echo -e "${BLUE}📋 STEP 6: Creating nest directory structure...${NC}"
-pct exec $CONTAINER_ID -- ash -c "
-mkdir -p /opt/nest/{services,dropbox/{incoming,processing,archive},logs,config}
-chmod 755 /opt/nest
-chmod 777 /opt/nest/dropbox/incoming
-"
+pct exec $CONTAINER_ID -- ash -c "mkdir -p /opt/nest"
+pct exec $CONTAINER_ID -- ash -c "mkdir -p /opt/nest/services"
+pct exec $CONTAINER_ID -- ash -c "mkdir -p /opt/nest/dropbox"
+pct exec $CONTAINER_ID -- ash -c "mkdir -p /opt/nest/dropbox/incoming"
+pct exec $CONTAINER_ID -- ash -c "mkdir -p /opt/nest/dropbox/processing"
+pct exec $CONTAINER_ID -- ash -c "mkdir -p /opt/nest/dropbox/archive"
+pct exec $CONTAINER_ID -- ash -c "mkdir -p /opt/nest/logs"
+pct exec $CONTAINER_ID -- ash -c "mkdir -p /opt/nest/config"
+pct exec $CONTAINER_ID -- ash -c "chmod 755 /opt/nest"
+pct exec $CONTAINER_ID -- ash -c "chmod 777 /opt/nest/dropbox/incoming"
 echo -e "${GREEN}✅ Directory structure created${NC}"
 echo ""
 
